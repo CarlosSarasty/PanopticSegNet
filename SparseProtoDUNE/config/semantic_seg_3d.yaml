@@ -1,0 +1,95 @@
+data:
+  name: "SparsePixelMap3D"
+  root: "/data/3d"
+  trainfiles: "showers1"
+  t_v_split: 0.1
+
+process:
+  processes: 50
+  max_files: 10000
+  pre_transform: None
+  voxel_size: 1
+  feat_norm: [1.e-5, 1.e-5, 1.e-5, 6.25e-4, 1.667e-3, 1.429e-3, 5.e-2]
+
+model:
+  name: "SemanticSegUNet34C"
+  n_dims: 3
+  extent: 6000 # Maximum dimension of pixel map
+  input_feats: 7
+  n_feats: 32 # Number of features
+  unet_depth: 5 
+  res_blocks: True # Whether to use residual blocks in unet
+  instance_segmentation: False
+  loss_params:
+    func: "categorical_focal_loss" 
+    #func: "categorical_focal_loss" 
+  arrange_data: "arrange_sparse_minkowski"
+  arrange_truth: "sparse_semantic_truth"
+
+  activation_params:
+    activation: "mish" 
+    LeakyReLU:
+      negative_slope: 0.01
+
+  optimizer_params:
+    optimizer: "SGD"
+    AdamW:
+      lr: 1.e-2
+      weight_decay:     0.01
+    Ranger:
+      lr:               1.e-3
+      alpha:            0.5
+      k:                6
+      N_sma_threshhold: 5
+      betas:            [ 0.95, 0.999 ]
+      eps:              1.e-5
+      weight_decay:     0
+      use_gc:           True
+      gc_conv_only:     False
+    SGD:
+      lr:               1.e-2
+      momentum:         0.9
+
+  scheduler_params:
+    scheduler: 'ReduceLROnPlateau' 
+    ReduceLROnPlateau:
+      factor: 0.9
+      patience: 10
+    StepLR:
+      step_size: 6 
+      gamma: 0.9
+    CyclicLR:
+      base_lr: 7.e-4
+      max_lr: 9.e-4
+      step_size_up: 8000
+      mode: 'triangular'
+      verbose: True
+
+  n_classes: 8
+
+  metric_params:
+    metrics: "SemanticSegmentation"
+    include_batch_metrics: True
+    SemanticSegmentation:
+      class_names: ["shower","delta","diffuse","kaons","michel","hip","mu","pi"]
+
+data_loader:
+  batch_size: 50 
+  num_workers: 0
+
+trainer:
+  device: 6 # Which GPU to use
+  n_epochs: 50
+  train_name: "train"
+  summary_dir: "/scratch/SparseProtoDUNE/summary/Test"  
+  output_dir: "/data/3d/params/debugging/Test" 
+  resume: False
+  debug: False
+  state_dict: None 
+
+inference:
+  max_images: 500 # Maximum number of images to process
+  event_display: False #  Whether to draw event displays
+  confusion: True # Whether to draw a confusion matrix
+  state_dict: None  # Replace this with a string path to a trained .pth.tar file after training! They"re written to params/checkpoints
+ 

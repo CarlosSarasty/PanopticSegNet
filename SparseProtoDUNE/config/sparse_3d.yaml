@@ -1,0 +1,86 @@
+data:
+  name: "SparsePixelMap3D"
+  root: "/data/3d"
+  trainfiles: "processed"
+  t_v_split: 0.05
+
+process:
+  processes: 50
+  max_files: 10000
+  pre_transform: None
+  voxel_size: 1
+  feat_norm: [1.e-5, 1.e-5, 1.e-5, 6.25e-4, 1.667e-3, 1.429e-3, 5.e-2]
+
+model:
+  name: "MinkowskiSeg"
+  n_dims: 3
+  extent: 6000 # Maximum dimension of pixel map
+  input_feats: 7
+  n_feats: 14 # Number of features
+  unet_depth: 10
+  res_blocks: True # Whether to use residual blocks in unet
+
+  instance_segmentation: False
+  loss_params:
+    func: "categorical_cross_entropy"
+  arrange_data: "arrange_sparse_minkowski"
+  arrange_truth: "arrange_sparse"
+
+  activation_params:
+    activation: "mish" 
+    LeakyReLU:
+      negative_slope: 0.01
+
+  optimizer_params:
+    optimizer: "AdamW"
+    AdamW:
+      lr: 1.e-4
+      weight_decay:     0.01
+    Ranger:
+      lr:               1.e-3
+      alpha:            0.5
+      k:                6
+      N_sma_threshhold: 5
+      betas:            [ 0.95, 0.999 ]
+      eps:              1.e-5
+      weight_decay:     0
+      use_gc:           True
+      gc_conv_only:     False
+
+  scheduler_params:
+    scheduler: "ReduceLROnPlateau"
+    ReduceLROnPlateau:
+      factor: 0.9
+      patience: 3
+    StepLR:
+      step_size: 5 
+      gamma: 0.8
+
+  n_classes: 8
+
+  metric_params:
+    metrics: "SemanticSegmentation"
+    include_batch_metrics: True
+    SemanticSegmentation:
+      class_names: ["shower","delta","diffuse","kaons","michel","hip","mu","pi"]
+
+data_loader:
+  batch_size: 30 
+  num_workers: 0
+
+trainer:
+  device: "cpu" # Which GPU to use
+  n_epochs: 20
+  train_name: "default"
+  summary_dir: "/scratch/SparseProtoDUNE/summary"
+  output_dir: "/data/3d/params"
+  resume: True
+  debug: False
+
+inference:
+  max_images: 100 # Maximum number of images to process
+  event_display: False # Whether to draw event displays
+  confusion: True # Whether to draw a confusion matrix
+  state_dict: None 
+  # Replace this with a string path to a trained .pth.tar file after training! They"re written to params/checkpoints
+ 
